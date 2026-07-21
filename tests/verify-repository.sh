@@ -131,8 +131,15 @@ if [[ ! "$pinned_revision" =~ ^[0-9a-f]{40}$ ]]; then fail "pinned Envision revi
 checked_out_revision=$(git -C vendor/envision rev-parse HEAD)
 assert_equal "checked-out Envision revision" "$pinned_revision" "$checked_out_revision"
 assert_contains Containerfile '^ARG FEDORA_VERSION=44$'
+assert_contains Containerfile '^ARG ENVISION_REVISION=unknown$'
+assert_count Containerfile '^ARG ENVISION_REVISION$' 2
 assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS builder$'
 assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS dist$'
+assert_contains Containerfile '^COPY \.git/modules/vendor/envision /tmp/envision-git$'
+assert_literal Containerfile 'git -C / config --file /build/envision/.git/config --unset core.worktree'
+# This assertion intentionally contains literal Containerfile shell syntax.
+# shellcheck disable=SC2016
+assert_literal Containerfile 'test "$(git rev-parse HEAD)" = "${ENVISION_REVISION}"'
 assert_contains Containerfile 'org\.opencontainers\.image\.source="https://github\.com/johnneerdael/envision-oci"'
 assert_contains Containerfile 'io\.github\.johnneerdael\.envision\.revision="\$\{ENVISION_REVISION\}"'
 assert_not_contains Containerfile 'fedora:latest'
@@ -158,6 +165,8 @@ assert_not_contains build-oci.nu '\-\-token'
 assert_contains pkg/homebrew/install.nu '^use std/log$'
 assert_file_present pkg/homebrew/install.nu
 assert_file_present pkg/homebrew/uninstall.nu
+assert_file_present tests/verify-image.sh
+if [[ ! -x tests/verify-image.sh ]]; then fail "tests/verify-image.sh must be executable"; fi
 assert_file_absent .tangled/workflows/homebrew.yaml
 assert_file_absent pkg/homebrew/update-archive.nu
 

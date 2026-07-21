@@ -138,8 +138,8 @@ Before declaring implementation complete:
 3. Validate GitHub Actions workflow syntax with `actionlint` or an equivalent parser.
 4. Parse or check all modified Nushell scripts with a current Nushell runtime.
 5. Build the full image for `linux/amd64` from the pinned source.
-6. Run `/opt/envision/bin/envision --version` from the built image and confirm that it reports the expected upstream revision suffix.
-7. Inspect the built image labels, entrypoint, architecture, and default image name.
+6. Run `tests/verify-image.sh` against the built image and confirm that the executable embeds the expected upstream revision suffix and has no unresolved shared libraries. Upstream initializes GTK before handling `--version`, so direct CLI version checks require a display and are not a valid headless smoke test.
+7. Use the same image check to inspect the built image labels, entrypoint, architecture, packaged XR components, and `/var/home` compatibility link.
 8. Review the final diff for accidental release credentials or unrelated changes.
 
 The first actual registry push and public-visibility change occur through GitHub after the implementation is committed and pushed; local verification does not mutate GHCR.

@@ -182,8 +182,10 @@ Add these assertions immediately before the final printf:
 
 ~~~bash
 assert_contains Containerfile '^ARG FEDORA_VERSION=44$'
+assert_contains Containerfile '^ARG ENVISION_REVISION=unknown$'
 assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS builder$'
 assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS dist$'
+assert_contains Containerfile '^COPY \.git/modules/vendor/envision /tmp/envision-git$'
 assert_contains Containerfile 'org\.opencontainers\.image\.source="https://github\.com/johnneerdael/envision-oci"'
 assert_contains Containerfile 'io\.github\.johnneerdael\.envision\.revision="\$\{ENVISION_REVISION\}"'
 assert_contains Containerfile 'dnf clean all'
@@ -211,9 +213,11 @@ Use this complete file:
 # Copyright (c) 2026 MatrixFurry <matrix@matrixfurry.com>
 
 ARG FEDORA_VERSION=44
+ARG ENVISION_REVISION=unknown
 
 # Stage 1: Build Envision
 FROM fedora:${FEDORA_VERSION} AS builder
+ARG ENVISION_REVISION
 
 RUN dnf -y builddep envision && \
     dnf -y group install development-tools && \
@@ -221,6 +225,11 @@ RUN dnf -y builddep envision && \
 
 WORKDIR /build/envision
 COPY vendor/envision /build/envision
+COPY .git/modules/vendor/envision /tmp/envision-git
+RUN rm -f .git && \
+    mv /tmp/envision-git .git && \
+    git -C / config --file /build/envision/.git/config --unset core.worktree && \
+    test "$(git rev-parse HEAD)" = "${ENVISION_REVISION}"
 RUN meson setup build -Dprefix="/opt/envision"
 RUN ninja -C build
 RUN ninja -C build install
@@ -228,7 +237,7 @@ RUN ninja -C build install
 # Stage 2: Create the distributable image
 FROM fedora:${FEDORA_VERSION} AS dist
 
-ARG ENVISION_REVISION=unknown
+ARG ENVISION_REVISION
 
 LABEL org.opencontainers.image.title="Envision-OCI Runtime" \
     org.opencontainers.image.description="Envision and XR build dependencies for Fedora Atomic and Bazzite" \
@@ -859,7 +868,9 @@ git commit -m "docs: document the maintained Bazzite distribution"
 ### Task 6: Perform Full amd64 Verification
 
 **Files:**
-- Verify only; change files only when a command exposes a concrete defect, then rerun the affected task's checks before committing that correction.
+- Verify: all implementation files
+- Add if the full build exposes the expected headless version-check limitation: `tests/verify-image.sh`
+- Change other files only when a command exposes a concrete defect, then rerun the affected task's checks before committing that correction.
 
 - [ ] **Step 1: Run all fast checks from a clean index**
 
@@ -888,19 +899,21 @@ docker buildx build --platform linux/amd64 --file Containerfile --build-arg "ENV
 
 Expected: both Fedora stages complete successfully and Docker loads envision-oci:test as a linux/amd64 image.
 
-- [ ] **Step 3: Smoke-test the installed Envision binary**
+- [ ] **Step 3: Verify the installed Envision artifact**
 
 Run:
 
 ~~~bash
-docker run --rm --platform linux/amd64 envision-oci:test --version
+bash tests/verify-image.sh envision-oci:test "$ENVISION_REVISION"
 ~~~
 
 Expected:
 
 ~~~text
-Envision 3.2.0-aa84e48
+image checks passed: envision-oci:test (aa84e48e8de86dd12d62604340a29748b599d298, 3.2.0-aa84e48)
 ~~~
+
+The script checks the embedded version string, shared-library resolution, architecture, entrypoint, labels, packaged XR components, and `/var/home` link. Direct `envision --version` is not a valid headless smoke test because upstream initializes GTK before handling command-line options.
 
 - [ ] **Step 4: Inspect architecture, entrypoint, and upstream revision metadata**
 

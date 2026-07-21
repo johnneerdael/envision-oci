@@ -2,9 +2,11 @@
 # Copyright (c) 2026 MatrixFurry <matrix@matrixfurry.com>
 
 ARG FEDORA_VERSION=44
+ARG ENVISION_REVISION=unknown
 
 # Stage 1: Build Envision
 FROM fedora:${FEDORA_VERSION} AS builder
+ARG ENVISION_REVISION
 
 RUN dnf -y builddep envision && \
     dnf -y group install development-tools && \
@@ -12,6 +14,11 @@ RUN dnf -y builddep envision && \
 
 WORKDIR /build/envision
 COPY vendor/envision /build/envision
+COPY .git/modules/vendor/envision /tmp/envision-git
+RUN rm -f .git && \
+    mv /tmp/envision-git .git && \
+    git -C / config --file /build/envision/.git/config --unset core.worktree && \
+    test "$(git rev-parse HEAD)" = "${ENVISION_REVISION}"
 RUN meson setup build -Dprefix="/opt/envision"
 RUN ninja -C build
 RUN ninja -C build install
@@ -34,7 +41,7 @@ RUN dnf -y install \
 
 COPY --from=builder /opt/envision /opt/envision
 
-ARG ENVISION_REVISION=unknown
+ARG ENVISION_REVISION
 
 LABEL org.opencontainers.image.title="Envision-OCI Runtime" \
     org.opencontainers.image.description="Envision and XR build dependencies for Fedora Atomic and Bazzite" \
