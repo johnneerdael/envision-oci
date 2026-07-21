@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 MatrixFurry <matrix@matrixfurry.com>
 
-use std log
+use std/log
 
 def main [staged_path: string] {
     cd $staged_path

@@ -1,36 +1,53 @@
-#!/usr/bin/env nu
+#!/usr/bin/env -S nu --stdin
 # SPDX-License-Identifier: AGPL-3.0-only
 # SPDX-FileCopyrightText: MatrixFurry <matrix@matrixfurry.com>
 
 const name = "envision-oci"
-const registry = "registry.gitlab.com"
-const project = "matrixfurry/xr-packages"
+const registry = "ghcr.io"
+const project = "johnneerdael"
 
 const root = path self .
 const registry_path = [$registry $project $name] | str join '/'
 
 def main [
     --username (-u): string
-    --token (-t): string
-    --no-login (-l) # Use this if the machine is already authenticated with the container registry
+    --no-login (-l) # Use this if the machine is already authenticated with GHCR
 ] {
-    let username = $username | default $env.CI_REGISTRY_USERNAME?
-    let token = $token | default $env.CI_REGISTRY_PASSWORD?
+    let stdin_token = $in
+    let username = $username | default $env.GHCR_USERNAME?
+    let token = if $no_login {
+        null
+    } else if ($env.GHCR_TOKEN? | is-empty) {
+        if (is-terminal --stdin) {
+            input --suppress-output "GHCR token: "
+        } else {
+            $stdin_token | str trim
+        }
+    } else {
+        $env.GHCR_TOKEN
+    }
 
     if ($username | is-empty) and not $no_login {
         error make {
             msg: "Username not provided"
-            help: "Please provide a username with --username or $env.CI_REGISTRY_USERNAME"
+            help: "Provide --username or set $env.GHCR_USERNAME"
         }
     }
     if ($token | is-empty) and not $no_login {
         error make {
             msg: "Token not provided"
-            help: "Please provide a deployment token with --token or $env.CI_REGISTRY_PASSWORD"
+            help: "Set $env.GHCR_TOKEN or enter it at the prompt"
         }
     }
 
-    if not $no_login {podman login $registry -u $username -p $token}
-    podman build -t $registry_path $root
-    podman push $registry_path
+    if not $no_login {
+        $token | podman login $registry --username $username --password-stdin
+    }
+
+    let image = $"($registry_path):latest"
+    let envision_revision = do --capture-errors {
+        git -C ($root | path join vendor envision) rev-parse HEAD
+    } | str trim
+    podman build --platform linux/amd64 --tag $image --build-arg $"ENVISION_REVISION=($envision_revision)" $root
+    podman push $image
 }

@@ -4,13 +4,22 @@
 
 # Run Envision in a container with pre-installed build and runtime dependencies
 
-use std log
+use std/log
 
-const image = "registry.gitlab.com/matrixfurry/xr-packages/envision-oci:latest"
+const default_image = "ghcr.io/johnneerdael/envision-oci:latest"
 
-def main --wrapped [...args] {
+def main --wrapped [--help (-h), ...args] {
+    let image = $env.ENVISION_OCI_IMAGE? | default $default_image
+    let envision_args = if ($args | is-empty) {
+        $args
+    } else if ($args | first) == "--" {
+        $args | skip 1
+    } else {
+        $args
+    }
+
     try {
-        podman pull $image | tee {try {zenity --progress ...[
+        do --capture-errors { podman pull $image } | tee {try {zenity --progress ...[
             --pulsate
             --auto-close
             --no-cancel
@@ -21,11 +30,10 @@ def main --wrapped [...args] {
             log debug $e.rendered
         }}
     } catch {|e|
-        zerr $e.rendered "Failed to download Envision"
+        zerr $e.rendered $"Failed to download Envision image ($image)"
     }
 
     let uid = id -u
-    let gid = id -g
     let container_home = "/home" | path join ($env.HOME | path basename)
     let home = $env.HOME
 
@@ -77,9 +85,9 @@ def main --wrapped [...args] {
             --workdir $home
             --tty
             --rm
-        ] $image ...$args
+        ] $image ...$envision_args
     } catch {|e|
-        zerr $e.rendered "Envision-OCI failed"
+        zerr $e.rendered $"Envision-OCI failed using ($image)"
     }
 }
 
