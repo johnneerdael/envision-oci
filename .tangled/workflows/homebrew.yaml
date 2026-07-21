@@ -1,0 +1,14 @@
+when:
+  - event: ["push"]
+    tag: ["v*"]
+
+engine: "nixery"
+
+dependencies:
+  nixpkgs:
+    - stdenv
+    - nushell
+
+steps:
+  - name: "Update Homebrew package"
+    command: "pkg/homebrew/update-archive.nu"

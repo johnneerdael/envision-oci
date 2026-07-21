@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Envision
+Comment=GUI for Monado
+Type=Application
+Exec=@RUNNER_PATH@
+Terminal=false
+Categories=GNOME;GTK;Game;
+Keywords=vr;virtual;reality;monado;
+Icon=org.gabmus.envision
+StartupNotify=true
+X-GNOME-UsesNotifications=true
