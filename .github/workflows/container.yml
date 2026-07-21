@@ -1,0 +1,144 @@
+name: Container
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Envision source to build
+        type: choice
+        required: true
+        default: pinned
+        options:
+          - pinned
+          - edge
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: true
+
+      - name: Determine upstream revision
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision=$(git -C vendor/envision rev-parse HEAD)
+          printf 'revision=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Validate image build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64
+          build-args: |
+            ENVISION_REVISION=${{ steps.source.outputs.revision }}
+          cache-from: type=gha,scope=container-pinned
+          push: false
+
+  publish:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: true
+
+      - name: Select Envision source
+        id: source
+        shell: bash
+        env:
+          DISPATCH_SOURCE: ${{ inputs.source }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            mode="edge"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            mode="$DISPATCH_SOURCE"
+          else
+            mode="pinned"
+          fi
+
+          if [[ "$mode" == "edge" ]]; then
+            git -C vendor/envision fetch https://gitlab.com/gabmus/envision.git main
+            git -C vendor/envision checkout --detach FETCH_HEAD
+          fi
+
+          revision=$(git -C vendor/envision rev-parse HEAD)
+          printf 'mode=%s\n' "$mode" >> "$GITHUB_OUTPUT"
+          printf 'revision=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/johnneerdael/envision-oci
+          flavor: latest=false
+          tags: |
+            type=raw,value=latest,enable=${{ steps.source.outputs.mode == 'pinned' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+            type=sha,prefix=sha-,format=long,enable=${{ steps.source.outputs.mode == 'pinned' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+            type=semver,pattern={{version}},enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge,enable=${{ steps.source.outputs.mode == 'edge' }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/johnneerdael/envision-oci
+            io.github.johnneerdael.envision.revision=${{ steps.source.outputs.revision }}
+
+      - name: Build and publish image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64
+          build-args: |
+            ENVISION_REVISION=${{ steps.source.outputs.revision }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha,scope=container-${{ steps.source.outputs.mode }}
+          cache-to: type=gha,mode=max,scope=container-${{ steps.source.outputs.mode }}
+          push: true
+
+      - name: Attest image provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
+        with:
+          subject-name: ghcr.io/johnneerdael/envision-oci
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
