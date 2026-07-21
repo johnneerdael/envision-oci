@@ -41,7 +41,7 @@ assert_literal() {
     local file=$1
     local text=$2
 
-    if ! grep -Fq "$text" "$file"; then
+    if ! grep -Fq -- "$text" "$file"; then
         fail "$file does not contain required text: $text"
     fi
 }
@@ -156,6 +156,57 @@ assert_contains build-oci.nu 'ENVISION_REVISION'
 assert_not_contains build-oci.nu 'CI_REGISTRY_'
 assert_not_contains build-oci.nu '\-\-token'
 assert_contains pkg/homebrew/install.nu '^use std/log$'
+assert_file_present pkg/homebrew/install.nu
+assert_file_present pkg/homebrew/uninstall.nu
+assert_file_absent .tangled/workflows/homebrew.yaml
+assert_file_absent pkg/homebrew/update-archive.nu
+
+assert_literal README.md '<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->'
+assert_literal README.md 'https://gitlab.com/gabmus/envision'
+assert_literal README.md 'ghcr.io/johnneerdael/envision-oci:latest'
+assert_literal README.md 'ghcr.io/johnneerdael/envision-oci:edge'
+assert_literal README.md 'sha-0123456789abcdef0123456789abcdef01234567'
+assert_literal README.md 'MAJOR.MINOR.PATCH'
+assert_literal README.md 'ENVISION_OCI_IMAGE'
+assert_literal README.md 'Package settings'
+assert_literal README.md 'Danger Zone'
+assert_literal README.md 'Public'
+assert_literal README.md 'linux/amd64'
+assert_literal README.md 'x86_64'
+assert_literal README.md 'Bazzite'
+assert_literal README.md 'Fedora Atomic'
+assert_literal README.md 'Bazzite includes Podman'
+assert_literal README.md 'brew install nushell'
+assert_literal README.md 'temporary container is removed'
+assert_literal README.md 'aa84e48'
+assert_literal README.md '373646a'
+assert_literal README.md 'udev-rule detection'
+assert_literal README.md 'setcap warnings at more accurate times'
+assert_literal README.md 'ellipsize long profile names'
+assert_literal README.md 'after-stop XR plugin execution'
+assert_literal README.md 'Proton 11 and Steam Linux Runtime 4'
+assert_literal README.md "system profile uses \`/usr\`"
+assert_literal README.md 'git -C vendor/envision fetch https://gitlab.com/gabmus/envision.git main'
+assert_literal README.md 'git -C vendor/envision checkout --detach FETCH_HEAD'
+assert_literal README.md "ENVISION_REVISION=\$(git -C vendor/envision rev-parse HEAD)"
+assert_literal README.md 'GHCR_USERNAME'
+assert_literal README.md 'GHCR_TOKEN'
+assert_literal README.md '--no-login'
+assert_literal README.md 'AGPL-3.0-only'
+assert_literal README.md 'CC-BY-SA-4.0'
+assert_literal README.md 'MatrixFurry'
+assert_literal README.md 'John Neerdael'
+assert_literal README.md 'https://tangled.org/matrixfurry.com/envision-oci'
+assert_not_contains README.md 'Envision-OCI is unmaintained'
+assert_not_contains README.md 'brew install envision-oci'
+assert_not_contains README.md 'git clone.*tangled\.org'
+assert_not_contains README.md 'curl.*tangled\.org'
+assert_not_contains README.md 'Homebrew-XR|homebrew-xr'
+assert_not_contains README.md 'registry\.gitlab\.com'
+
+for active_file in Containerfile runner.nu build-oci.nu .github/workflows/container.yml; do
+    assert_not_contains "$active_file" 'registry\.gitlab\.com'
+done
 
 workflow=.github/workflows/container.yml
 assert_file_present "$workflow"
