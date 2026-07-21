@@ -37,6 +37,19 @@ assert_not_contains() {
     fi
 }
 
+assert_count() {
+    local file=$1
+    local pattern=$2
+    local expected=$3
+    local actual
+
+    actual=$(awk -v pattern="$pattern" '
+        { count += gsub(pattern, "&") }
+        END { print count + 0 }
+    ' "$file")
+    assert_equal "$file match count for $pattern" "$expected" "$actual"
+}
+
 assert_file_absent() {
     local file=$1
 
@@ -52,4 +65,13 @@ pinned_revision=$(git ls-files --stage vendor/envision | awk '{print $2}')
 if [[ ! "$pinned_revision" =~ ^[0-9a-f]{40}$ ]]; then fail "pinned Envision revision is not a full Git commit: $pinned_revision"; fi
 checked_out_revision=$(git -C vendor/envision rev-parse HEAD)
 assert_equal "checked-out Envision revision" "$pinned_revision" "$checked_out_revision"
+assert_contains Containerfile '^ARG FEDORA_VERSION=44$'
+assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS builder$'
+assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS dist$'
+assert_contains Containerfile 'org\.opencontainers\.image\.source="https://github\.com/johnneerdael/envision-oci"'
+assert_contains Containerfile 'io\.github\.johnneerdael\.envision\.revision="\$\{ENVISION_REVISION\}"'
+assert_not_contains Containerfile 'fedora:latest'
+assert_not_contains Containerfile 'https://tangled\.org/matrixfurry\.com/envision-oci'
+assert_count Containerfile 'dnf clean all' 2
+assert_count Containerfile 'bzip2-devel' 1
 printf 'repository checks passed\n'
