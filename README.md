@@ -14,6 +14,12 @@ The container targets `linux/amd64` only. It is designed around the Podman and
 host-integration behavior available on Bazzite/Fedora Atomic, rather than as a
 general-purpose container for every Linux distribution.
 
+The image deliberately uses Fedora 42 as its ABI baseline. Envision writes
+Monado, xrizer, and OpenComposite build artifacts into the host home directory,
+and Steam's Pressure Vessel later loads those libraries outside this container.
+Using a newer glibc in the image would make those artifacts unloadable on older
+supported hosts and Steam runtimes.
+
 ## Requirements
 
 - An x86_64 Bazzite or Fedora Atomic installation

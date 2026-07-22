@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 MatrixFurry <matrix@matrixfurry.com>
 
-ARG FEDORA_VERSION=44
+# Envision builds xrizer and OpenXR libraries into the bind-mounted host home.
+# Those libraries are later loaded by host Steam/Pressure Vessel processes, so
+# the container must not target a newer glibc than supported host releases.
+ARG FEDORA_VERSION=42
 ARG ENVISION_REVISION=unknown
 
 # Stage 1: Build Envision

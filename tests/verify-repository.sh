@@ -130,7 +130,7 @@ pinned_revision=$(git ls-files --stage vendor/envision | awk '{print $2}')
 if [[ ! "$pinned_revision" =~ ^[0-9a-f]{40}$ ]]; then fail "pinned Envision revision is not a full Git commit: $pinned_revision"; fi
 checked_out_revision=$(git -C vendor/envision rev-parse HEAD)
 assert_equal "checked-out Envision revision" "$pinned_revision" "$checked_out_revision"
-assert_contains Containerfile '^ARG FEDORA_VERSION=44$'
+assert_contains Containerfile '^ARG FEDORA_VERSION=42$'
 assert_contains Containerfile '^ARG ENVISION_REVISION=unknown$'
 assert_count Containerfile '^ARG ENVISION_REVISION$' 2
 assert_contains Containerfile '^FROM fedora:\$\{FEDORA_VERSION\} AS builder$'
