@@ -195,6 +195,8 @@ IFS=$'\t' read -r -a run_call <<< "${podman_calls[1]}"
 run_arg_count=${#run_call[@]}
 (( run_arg_count >= 4 )) || fail "runner did not forward the expected arguments"
 assert_equal "runner command" run "${run_call[0]}"
+runner_args=$(printf '%s\n' "${run_call[@]}")
+assert_output_contains "runner USB hotplug mount" "$runner_args" "/dev/bus/usb:/dev/bus/usb:rslave"
 assert_equal "default run image" "$default_image" "${run_call[run_arg_count - 3]}"
 assert_equal "first forwarded argument" --first "${run_call[run_arg_count - 2]}"
 assert_equal "second forwarded argument" "two words" "${run_call[run_arg_count - 1]}"

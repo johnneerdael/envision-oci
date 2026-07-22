@@ -151,6 +151,7 @@ assert_contains runner.nu '^const default_image = "ghcr\.io/johnneerdael/envisio
 assert_contains runner.nu '^def main --wrapped \[--help \(-h\), \.\.\.args\] \{$'
 assert_contains runner.nu 'ENVISION_OCI_IMAGE'
 assert_contains runner.nu 'Failed to download Envision image'
+assert_contains runner.nu '[-][-]volume /dev/bus/usb:/dev/bus/usb:rslave'
 assert_not_contains runner.nu 'registry\.gitlab\.com'
 assert_not_contains runner.nu 'let gid ='
 assert_contains build-oci.nu '^const registry = "ghcr\.io"$'

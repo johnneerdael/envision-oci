@@ -19,16 +19,10 @@ def main --wrapped [--help (-h), ...args] {
     }
 
     try {
-        do --capture-errors { podman pull $image } | tee {try {zenity --progress ...[
-            --pulsate
-            --auto-close
-            --no-cancel
-            "--title=Updating Envision"
-            "--text=Downloading container image..."
-        ]} catch {|e|
-            log warning "Failed to launch Zenity, dialog will not be displayed."
-            log debug $e.rendered
-        }}
+        # Keep the pull attached to the terminal. Piping it through a progress
+        # dialog can close Podman's output early and turn a successful pull into
+        # a broken-pipe failure before Envision starts.
+        do --capture-errors { podman pull $image }
     } catch {|e|
         zerr $e.rendered $"Failed to download Envision image ($image)"
     }
@@ -37,7 +31,9 @@ def main --wrapped [--help (-h), ...args] {
     let container_home = "/home" | path join ($env.HOME | path basename)
     let home = $env.HOME
 
-    # I don't think we need `--device /dev/dri` since we already have `--volume /dev:/dev:rslave` and `run.oci.keep_original_groups`
+    # I don't think we need `--device /dev/dri` since `--privileged` exposes
+    # devices present at startup. USB is mounted separately below so hotplugged
+    # headsets and controllers also appear while the container is running.
     # We might still need `--gpus all` even if `--privileged` is enabled
     # Add `--privileged` if there are permission or perfomance issues that you cannot figure out
     # TODO: hardening
@@ -72,6 +68,7 @@ def main --wrapped [--help (-h), ...args] {
             --env XDG_RUNTIME_DIR=($env.XDG_RUNTIME_DIR? | default /run/user/($uid))
             --env XDG_DATA_DIRS=($env.XDG_DATA_DIRS? | default "/usr/local/share:/usr/share")
             --env GDMSESSION=($env.GDMSESSION? | default "")
+            --volume /dev/bus/usb:/dev/bus/usb:rslave
             --volume /tmp:/tmp:rslave
             --volume $"($home):($container_home):rslave"
             --volume $"/home/linuxbrew:/home/linuxbrew:rslave"

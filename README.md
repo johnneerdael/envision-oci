@@ -48,7 +48,10 @@ envision
 
 The runner pulls the selected image before every launch, passes through the host
 display, device, and runtime paths Envision needs, and forwards additional
-arguments to Envision. The temporary container is removed when Envision exits.
+arguments to Envision. Its USB bus mount propagates headset and controller
+hotplug events into the running container. Device access permissions still come
+from the host's udev rules. The temporary container is removed when Envision
+exits.
 
 ## Image channels
 
