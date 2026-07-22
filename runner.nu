@@ -59,6 +59,7 @@ def main --wrapped [--help (-h), ...args] {
             --cap-add SYS_NICE
             --label "manager=envision-oci"
             --env "SHELL=bash"
+            --env PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=($env.PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES? | default 1)
             --env $"HOME=($home)"
             --env DESKTOP_SESSION=($env.DESKTOP_SESSION? | default gnome)
             --env XDG_SESSION_DESKTOP=($env.XDG_SESSION_DESKTOP? | default gnome)
